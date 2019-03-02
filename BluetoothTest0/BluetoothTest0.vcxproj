@@ -19,7 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{03a98559-bb65-44be-8393-475b6338fde4}</ProjectGuid>
+    <ProjectGuid>{B9E0D522-62EF-4FB8-AB19-F112106CD23D}</ProjectGuid>
     <Keyword>Linux</Keyword>
     <RootNamespace>Blink1</RootNamespace>
     <MinimumVisualStudioVersion>15.0</MinimumVisualStudioVersion>

@@ -8,32 +8,31 @@ int main(void)
 	//initscr();
 	//timeout(0);
 
-	BluetoothLocator* locator = BluetoothLocator_new();
+	BluetoothLocator* locator = BluetoothLocator_openDefaultDevice();
 
-	//struct hci_state current_hci_state = open_default_hci_device();
-	BluetoothLocator_openDefaultDevice(locator);
-
-	if (BluetoothLocator_checkForErrorAndPrint(locator))
-	{
-		return -1;
+#define CHECK_FOR_ERROR if (BluetoothLocator_hasError(locator)) \
+	{ \
+		const char* text = BluetoothLocator_getError(locator); \
+		printf("ERROR: %s", text); \
+		return -1; \
 	}
+
+	CHECK_FOR_ERROR
 
 	BluetoothLocator_startScan(locator);
 
-	if (BluetoothLocator_checkForErrorAndPrint(locator))
-	{
-		return -1;
-	}
+	CHECK_FOR_ERROR
 
 	printf("Scanning...\n");
 
 	bool done = false;
 	bool error = false;
+	int device_handler = BluetoothLocator_getDeviceHandler(locator);
 	while (!done && !error)
 	{
 		int len = 0;
 		unsigned char buf[HCI_MAX_EVENT_SIZE];
-		while ((len = read(BluetoothLocator_getDeviceHandler(locator), buf, sizeof(buf))) < 0)
+		while ((len = read(device_handler, buf, sizeof(buf))) < 0)
 		{
 			if (errno == EINTR)
 			{
@@ -105,14 +104,9 @@ int main(void)
 
 	BluetoothLocator_stopScan(locator);
 
-	if (BluetoothLocator_checkForErrorAndPrint(locator))
-	{
-		return -1;
-	}
+	CHECK_FOR_ERROR
 
 	BluetoothLocator_closeDevice(locator);
-
-	BluetoothLocator_free(locator);
 
 	//endwin();
 	return 0;

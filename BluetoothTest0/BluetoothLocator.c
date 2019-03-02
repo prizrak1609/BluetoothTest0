@@ -23,16 +23,27 @@ typedef struct hci_state hci_state;
 #define EIR_NAME_COMPLETE 0x09
 #define EIR_MANUFACTURE_SPECIFIC 0xFF
 
-bool BluetoothLocator_checkForErrorAndPrint(const BluetoothLocator *const instance)
+bool BluetoothLocator_hasError(const BluetoothLocator *const instance)
 {
-	hci_state *current_hci_state = instance->currentState;
-	if (current_hci_state->has_error)
+	if (instance)
 	{
-		printf("BluetoothLocator ERROR: %s\n", current_hci_state->error_message);
-		//endwin();
-		return true;
+		hci_state* current_hci_state = instance->currentState;
+		if (current_hci_state)
+		{
+			return current_hci_state->has_error;
+		}
 	}
 	return false;
+}
+
+const char* BluetoothLocator_getError(const BluetoothLocator* const instance)
+{
+	hci_state* current_hci_state = instance->currentState;
+	if (current_hci_state)
+	{
+		return current_hci_state->error_message;
+	}
+	return NULL;
 }
 
 void process_data(uint8_t *data, size_t data_len, le_advertising_info *info)
@@ -96,8 +107,10 @@ void BluetoothLocator_free(BluetoothLocator *instance)
 	}
 }
 
-void BluetoothLocator_openDefaultDevice(BluetoothLocator *const instance)
+BluetoothLocator* BluetoothLocator_openDefaultDevice()
 {
+	BluetoothLocator* locator = BluetoothLocator_new();
+
 	hci_state *current_hci_state = calloc(1, sizeof(hci_state));
 
 	current_hci_state->device_id = hci_get_route(NULL);
@@ -120,7 +133,9 @@ void BluetoothLocator_openDefaultDevice(BluetoothLocator *const instance)
 
 	current_hci_state->state = HCI_STATE_OPEN;
 
-	instance->currentState = current_hci_state;
+	locator->currentState = current_hci_state;
+
+	return locator;
 }
 
 void BluetoothLocator_startScan(const BluetoothLocator *const instance)
@@ -188,7 +203,7 @@ void BluetoothLocator_stopScan(const BluetoothLocator *const instance)
 	current_hci_state->state = HCI_STATE_OPEN;
 }
 
-void BluetoothLocator_closeDevice(const BluetoothLocator *const instance)
+void BluetoothLocator_closeDevice(BluetoothLocator *instance)
 {
 	hci_state *current_hci_state = instance->currentState;
 
@@ -196,6 +211,8 @@ void BluetoothLocator_closeDevice(const BluetoothLocator *const instance)
 	{
 		hci_close_dev(current_hci_state->device_handle);
 	}
+
+	BluetoothLocator_free(instance);
 }
 
 int BluetoothLocator_getDeviceHandler(const BluetoothLocator *const instance)
