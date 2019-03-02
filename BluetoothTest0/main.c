@@ -61,14 +61,14 @@ int main(void)
 
 	if (locator == NULL)
 	{
-		printf("device is null");
+		printf("device is null\n");
 		return 0;
 	}
 
 #define CHECK_FOR_ERROR if (BluetoothLocator_hasError(locator)) \
 	{ \
 		const char* text = BluetoothLocator_getError(locator); \
-		printf("ERROR: %s", text); \
+		printf("ERROR: %s\n", text); \
 		return -1; \
 	}
 
@@ -106,7 +106,7 @@ int main(void)
 
 		if (!done && !error)
 		{
-			evt_le_meta_event *meta = (void*)buf[1 + HCI_EVENT_HDR_SIZE];
+			evt_le_meta_event *meta = &buf[1 + HCI_EVENT_HDR_SIZE];
 
 			len -= 1 + HCI_EVENT_HDR_SIZE;
 
@@ -115,7 +115,7 @@ int main(void)
 				continue;
 			}
 
-			le_advertising_info *info = (void*)meta->data[1];
+			le_advertising_info *info = &meta->data[1];
 
 			if (info->length == 0)
 			{
@@ -134,12 +134,12 @@ int main(void)
 
 				if (data_len + 1 > info->length)
 				{
-					printf("EIR data length is longer than EIR packet length. %d + 1 > %d", data_len, info->length);
+					printf("EIR data length is longer than EIR packet length. %d + 1 > %d\n", data_len, info->length);
 					data_error = 1;
 				}
 				else
 				{
-					process_data((void*)info->data[current_index + 1], data_len, info);
+					process_data(&info->data[current_index + 1], data_len, info);
 					current_index += data_len + 1;
 				}
 			}
@@ -148,7 +148,7 @@ int main(void)
 
 	if (error)
 	{
-		printf("Error scanning.");
+		printf("Error scanning.\n");
 	}
 
 	BluetoothLocator_stopScan(locator);
