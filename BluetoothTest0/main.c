@@ -3,12 +3,67 @@
 
 #include "BluetoothLocator.h"
 
+#define EIR_FLAGS 0X01
+#define EIR_NAME_SHORT 0x08
+#define EIR_NAME_COMPLETE 0x09
+#define EIR_MANUFACTURE_SPECIFIC 0xFF
+
+void process_data(uint8_t* data, size_t data_len, le_advertising_info* info)
+{
+	printf("data: %p, data len: %d\n", data, data_len);
+	if (data[0] == EIR_NAME_SHORT || data[0] == EIR_NAME_COMPLETE)
+	{
+		size_t name_len = data_len - 1;
+		char* name = malloc(name_len + 1);
+		memset(name, 0, name_len + 1);
+		memcpy(name, &data[2], name_len);
+
+		char addr[18];
+		ba2str(&info->bdaddr, addr);
+
+		printf("addr=%s name=%s\n", addr, name);
+
+		free(name);
+	}
+	else if (data[0] == EIR_FLAGS)
+	{
+		printf("Flag type: len=%d\n", data_len);
+		int i;
+		for (i = 1; i < data_len; i++)
+		{
+			printf("\tFlag data: 0x%0X\n", data[i]);
+		}
+	}
+	else if (data[0] == EIR_MANUFACTURE_SPECIFIC)
+	{
+		printf("Manufacture specific type: len=%d\n", data_len);
+
+		// TODO int company_id = data[current_index + 2] 
+
+		int i;
+		for (i = 1; i < data_len; i++)
+		{
+			printf("\tData: 0x%0X\n", data[i]);
+		}
+	}
+	else
+	{
+		printf("Unknown type: type=%X\n", data[0]);
+	}
+}
+
 int main(void)
 {
 	//initscr();
 	//timeout(0);
 
 	BluetoothLocator* locator = BluetoothLocator_openDefaultDevice();
+
+	if (locator == NULL)
+	{
+		printf("device is null");
+		return 0;
+	}
 
 #define CHECK_FOR_ERROR if (BluetoothLocator_hasError(locator)) \
 	{ \
@@ -42,12 +97,6 @@ int main(void)
 
 			if (errno == EAGAIN || errno == EINTR)
 			{
-				if (getch() == 'q')
-				{
-					done = true;
-					break;
-				}
-
 				usleep(100);
 				continue;
 			}
@@ -57,16 +106,16 @@ int main(void)
 
 		if (!done && !error)
 		{
-			evt_le_meta_event *meta = (void *)(buf + (1 + HCI_EVENT_HDR_SIZE));
+			evt_le_meta_event *meta = (void*)buf[1 + HCI_EVENT_HDR_SIZE];
 
-			len -= (1 + HCI_EVENT_HDR_SIZE);
+			len -= 1 + HCI_EVENT_HDR_SIZE;
 
 			if (meta->subevent != EVT_LE_ADVERTISING_REPORT)
 			{
 				continue;
 			}
 
-			le_advertising_info *info = (le_advertising_info *)(meta->data + 1);
+			le_advertising_info *info = (void*)meta->data[1];
 
 			if (info->length == 0)
 			{
@@ -76,7 +125,7 @@ int main(void)
 			printf("Event: %d\n", info->evt_type);
 			printf("Length: %d\n", info->length);
 
-			int current_index = 0;
+			size_t current_index = 0;
 			int data_error = 0;
 
 			while (!data_error && current_index < info->length)
@@ -90,7 +139,7 @@ int main(void)
 				}
 				else
 				{
-					process_data(info->data + current_index + 1, data_len, info);
+					process_data((void*)info->data[current_index + 1], data_len, info);
 					current_index += data_len + 1;
 				}
 			}

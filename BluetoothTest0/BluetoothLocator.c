@@ -18,11 +18,6 @@ typedef struct hci_state hci_state;
 #define HCI_STATE_SCANNING 3
 #define HCI_STATE_FILTERING 4
 
-#define EIR_FLAGS 0X01
-#define EIR_NAME_SHORT 0x08
-#define EIR_NAME_COMPLETE 0x09
-#define EIR_MANUFACTURE_SPECIFIC 0xFF
-
 bool BluetoothLocator_hasError(const BluetoothLocator *const instance)
 {
 	if (instance)
@@ -44,50 +39,6 @@ const char* BluetoothLocator_getError(const BluetoothLocator* const instance)
 		return current_hci_state->error_message;
 	}
 	return NULL;
-}
-
-void process_data(uint8_t *data, size_t data_len, le_advertising_info *info)
-{
-	printf("data: %p, data len: %d\n", data, data_len);
-	if (data[0] == EIR_NAME_SHORT || data[0] == EIR_NAME_COMPLETE)
-	{
-		size_t name_len = data_len - 1;
-		char *name = malloc(name_len + 1);
-		memset(name, 0, name_len + 1);
-		memcpy(name, &data[2], name_len);
-
-		char addr[18];
-		ba2str(&info->bdaddr, addr);
-
-		printf("addr=%s name=%s\n", addr, name);
-
-		free(name);
-	}
-	else if (data[0] == EIR_FLAGS)
-	{
-		printf("Flag type: len=%d\n", data_len);
-		int i;
-		for (i = 1; i < data_len; i++)
-		{
-			printf("\tFlag data: 0x%0X\n", data[i]);
-		}
-	}
-	else if (data[0] == EIR_MANUFACTURE_SPECIFIC)
-	{
-		printf("Manufacture specific type: len=%d\n", data_len);
-
-		// TODO int company_id = data[current_index + 2] 
-
-		int i;
-		for (i = 1; i < data_len; i++)
-		{
-			printf("\tData: 0x%0X\n", data[i]);
-		}
-	}
-	else
-	{
-		printf("Unknown type: type=%X\n", data[0]);
-	}
 }
 
 BluetoothLocator* BluetoothLocator_new()
@@ -119,7 +70,7 @@ BluetoothLocator* BluetoothLocator_openDefaultDevice()
 	{
 		current_hci_state->has_error = TRUE;
 		snprintf(current_hci_state->error_message, sizeof(current_hci_state->error_message), "Could not open device: %s", strerror(errno));
-		return;
+		return NULL;
 	}
 
 	// Set fd non-blocking
@@ -128,7 +79,7 @@ BluetoothLocator* BluetoothLocator_openDefaultDevice()
 	{
 		current_hci_state->has_error = TRUE;
 		snprintf(current_hci_state->error_message, sizeof(current_hci_state->error_message), "Could set device to non-blocking: %s", strerror(errno));
-		return;
+		return NULL;
 	}
 
 	current_hci_state->state = HCI_STATE_OPEN;
