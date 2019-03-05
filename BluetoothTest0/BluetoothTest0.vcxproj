@@ -78,6 +78,9 @@
   <ItemGroup>
     <ClInclude Include="BluetoothLocator.h" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="cpp.hint" />
+  </ItemGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
     <ClCompile>
       <PositionIndependentCode>true</PositionIndependentCode>

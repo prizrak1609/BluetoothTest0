@@ -52,6 +52,53 @@ void process_data(uint8_t* data, size_t data_len, le_advertising_info* info)
 	}
 }
 
+void error_handler(const BluetoothLocator *const instance)
+{
+	const char* text = BluetoothLocator_getError(instance);
+	printf("ERROR: %s\n", text);
+}
+
+bool data_handler(unsigned char buf[HCI_MAX_EVENT_SIZE], int readLen)
+{
+	evt_le_meta_event* meta = &(buf[1 + HCI_EVENT_HDR_SIZE]);
+
+	if (meta->subevent != EVT_LE_ADVERTISING_REPORT)
+	{
+		// continue
+		return true;
+	}
+
+	le_advertising_info* info = &(meta->data[1]);
+
+	if (info->length == 0)
+	{
+		// continue
+		return true;
+	}
+
+	printf("Event: %d\n", info->evt_type);
+	printf("Length: %d\n", info->length);
+
+	size_t current_index = 0;
+	int data_error = 0;
+
+	while (!data_error && current_index < info->length)
+	{
+		size_t data_len = info->data[current_index];
+
+		if (data_len >= info->length)
+		{
+			printf("EIR data length is longer than EIR packet length. %d + 1 > %d\n", data_len, info->length);
+			data_error = 1;
+		}
+		else
+		{
+			process_data(&(info->data[current_index + 1]), data_len, info);
+			current_index += data_len + 1;
+		}
+	}
+}
+
 int main(void)
 {
 	//initscr();
@@ -59,102 +106,24 @@ int main(void)
 
 	BluetoothLocator* locator = BluetoothLocator_openDefaultDevice();
 
-	if (locator == NULL)
+	if (BluetoothLocator_hasError(locator))
 	{
-		printf("device is null\n");
-		return 0;
+		const char* text = BluetoothLocator_getError(locator);
+		printf("ERROR: %s", text);
+		goto END;
 	}
 
-#define CHECK_FOR_ERROR if (BluetoothLocator_hasError(locator)) \
-	{ \
-		const char* text = BluetoothLocator_getError(locator); \
-		printf("ERROR: %s\n", text); \
-		return -1; \
-	}
+	BluetoothLocator_setErrorHandler(locator, error_handler);
 
-	CHECK_FOR_ERROR
-
-	BluetoothLocator_startScan(locator);
-
-	CHECK_FOR_ERROR
+	BluetoothLocator_setDataHandler(locator, data_handler);
 
 	printf("Scanning...\n");
 
-	bool done = false;
-	bool error = false;
-	int device_handler = BluetoothLocator_getDeviceHandler(locator);
-	while (!done && !error)
-	{
-		int len = 0;
-		unsigned char buf[HCI_MAX_EVENT_SIZE];
-		while ((len = read(device_handler, buf, sizeof(buf))) < 0)
-		{
-			if (errno == EINTR)
-			{
-				done = true;
-				break;
-			}
-
-			if (errno == EAGAIN || errno == EINTR)
-			{
-				usleep(100);
-				continue;
-			}
-
-			error = true;
-		}
-
-		if (!done && !error)
-		{
-			evt_le_meta_event *meta = &buf[1 + HCI_EVENT_HDR_SIZE];
-
-			len -= 1 + HCI_EVENT_HDR_SIZE;
-
-			if (meta->subevent != EVT_LE_ADVERTISING_REPORT)
-			{
-				continue;
-			}
-
-			le_advertising_info *info = &meta->data[1];
-
-			if (info->length == 0)
-			{
-				continue;
-			}
-
-			printf("Event: %d\n", info->evt_type);
-			printf("Length: %d\n", info->length);
-
-			size_t current_index = 0;
-			int data_error = 0;
-
-			while (!data_error && current_index < info->length)
-			{
-				size_t data_len = info->data[current_index];
-
-				if (data_len + 1 > info->length)
-				{
-					printf("EIR data length is longer than EIR packet length. %d + 1 > %d\n", data_len, info->length);
-					data_error = 1;
-				}
-				else
-				{
-					process_data(&info->data[current_index + 1], data_len, info);
-					current_index += data_len + 1;
-				}
-			}
-		}
-	}
-
-	if (error)
-	{
-		printf("Error scanning.\n");
-	}
+	BluetoothLocator_startScan(locator);
 
 	BluetoothLocator_stopScan(locator);
 
-	CHECK_FOR_ERROR
-
+	END:
 	BluetoothLocator_closeDevice(locator);
 
 	//endwin();
